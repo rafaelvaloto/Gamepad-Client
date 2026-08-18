@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+
+# Rider / ReSharper / IntelliJ
+.idea/
+.idea.httpRequests/
+*.sln.DotSettings.user
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Native binaries and generated CMake output
+*.dll
+*.exe
+cmake-build-*/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and local environment files
+*.log
+.env
+
