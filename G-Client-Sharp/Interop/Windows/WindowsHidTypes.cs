@@ -1,10 +1,10 @@
-// Project: Gamepad-Client
+// Project: G-Client-Sharp
 // This project is a C# client for Gamepad-Core-Host.
 // Copyright (c) 2026 valoto.games. All rights reserved.
 
 using System.Runtime.InteropServices;
 
-namespace Gamepad_Client.Interop.Windows;
+namespace G_Client_Sharp.Interop.Windows;
 
 [StructLayout(LayoutKind.Sequential)]
 internal struct SpDeviceInterfaceData

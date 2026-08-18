@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gamepad-Client", "Gamepad-Client\Gamepad-Client.csproj", "{08209F64-B69A-4BC5-A7F0-CBDD547D809C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "G-Client-Sharp", "G-Client-Sharp\G-Client-Sharp.csproj", "{08209F64-B69A-4BC5-A7F0-CBDD547D809C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

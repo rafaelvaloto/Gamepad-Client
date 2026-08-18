@@ -1,48 +1,72 @@
-# Gamepad Client
+# G-Client-Sharp
 
-C# console application for consuming the native Gamepad Core Host API through callbacks and Windows HID interoperability.
+G-Client-Sharp is a .NET console application that consumes the
+[`GamepadCoreHost.dll`](https://github.com/rafaelvaloto/Gamepad-Core-Host) native API
+through C# P/Invoke and unmanaged callbacks.
+
+The client provides the Windows HID platform bridge used by Gamepad-Core Host to
+discover and communicate with Sony DualSense, DualSense Edge, and DualShock 4
+controllers.
 
 ## Requirements
 
 - Windows x64
 - .NET 10 SDK
-- x64 `GamepadCoreHost.dll`
-- A compatible Sony DualSense, DualSense Edge, or DualShock 4 controller
+- An x64 build of `GamepadCoreHost.dll`
+- A compatible Sony controller
 
-## Structure
+The native DLL is not included in this repository. Build it separately with the
+Gamepad-Core Host project and provide its path when running the client.
 
-- `Gamepad-Client/Program.cs` — minimal application entry point.
-- `Gamepad-Client/Application/` — native host initialization, callbacks, and update loop.
-- `Gamepad-Client/Infrastructure/Hid/` — HID device discovery and communication bridge.
-- `Gamepad-Client/Infrastructure/Hid/SonyHidDeviceCatalog.cs` — Sony device IDs, connection types, and descriptor size.
-- `Gamepad-Client/Interop/Callbacks/GamepadCoreCallbacks.cs` — unmanaged callback delegates.
-- `Gamepad-Client/Interop/Callbacks/GamepadCoreTypes.cs` — native-compatible descriptors and input layout.
-- `Gamepad-Client/Interop/Callbacks/GamepadCoreNative.cs` — Gamepad Core P/Invoke methods.
-- `Gamepad-Client/Interop/Windows/` — Windows constants, native-compatible types, and P/Invoke declarations.
+## Related project
 
-The native DLL is not committed to this repository. Build it separately with the Gamepad Core Host project.
+- [Gamepad-Core Host](https://github.com/rafaelvaloto/Gamepad-Core-Host) — native C-compatible DLL API consumed by this project.
+
+## Build
+
+```powershell
+dotnet build .\G-Client-Sharp\G-Client-Sharp.csproj
+```
 
 ## Run
 
 Pass the native DLL path as the first argument:
 
 ```powershell
-dotnet run --project .\Gamepad-Client\Gamepad-Client.csproj -- `
+dotnet run --project .\G-Client-Sharp\G-Client-Sharp.csproj -- `
   "C:\path\to\GamepadCoreHost.dll"
 ```
 
-You can also configure this argument in Rider's run configuration.
-
-If no argument is provided, the default path configured in `Program.cs` is used.
-
-## Build
+For example:
 
 ```powershell
-dotnet build .\Gamepad-Client\Gamepad-Client.csproj
+dotnet run --project .\G-Client-Sharp\G-Client-Sharp.csproj -- `
+  "C:\\GamepadCoreHost.dll"
 ```
 
-The native host must export functions using the `GCH_` prefix, including:
+The DLL must match the process architecture. Use an x64 DLL with the x64 .NET
+process.
 
+## Native API lifecycle
+
+The client follows this initialization sequence:
+
+1. Load the native DLL and resolve its P/Invoke functions.
+2. Register the native log callback.
+3. Register the platform bridge callbacks for detection, handle management, reading, and writing.
+4. Register the device registry callbacks for allocation, dispatch, and disconnection.
+5. Discover devices and update input state continuously.
+6. Call `GCH_Shutdown` during application shutdown.
+
+Device discovery runs independently from the input update loop because HID
+enumeration and handle creation can block I/O operations. The native host must
+support concurrent discovery and input updates safely.
+
+## Required native exports
+
+The DLL must export the following C-compatible functions:
+
+- `GCH_GetVersion`
 - `GCH_SetLogCallback`
 - `GCH_InitializeDeviceRegistryPolicy`
 - `GCH_InitializePlatformBridge`
@@ -51,6 +75,31 @@ The native host must export functions using the `GCH_` prefix, including:
 - `GCH_GetInputState`
 - `GCH_Shutdown`
 
+The callback and structure layouts in
+`G-Client-Sharp/Interop/Callbacks/` must remain compatible with the native API.
+
+## Project structure
+
+```text
+G-Client-Sharp/
+├── Application/
+│   └── GamepadClientApplication.cs
+├── Infrastructure/
+│   └── Hid/
+│       ├── HidPlatformBridge.cs
+│       └── SonyHidDeviceCatalog.cs
+├── Interop/
+│   ├── Callbacks/
+│   │   ├── GamepadCoreCallbacks.cs
+│   │   ├── GamepadCoreNative.cs
+│   │   └── GamepadCoreTypes.cs
+│   └── Windows/
+│       ├── PlatformNativeMethods.cs
+│       ├── WindowsHidConstants.cs
+│       └── WindowsHidTypes.cs
+└── Program.cs
+```
+
 ## License
 
-Add the project's license here before publishing a public release.
+Copyright (c) 2026 valoto.games. All rights reserved.

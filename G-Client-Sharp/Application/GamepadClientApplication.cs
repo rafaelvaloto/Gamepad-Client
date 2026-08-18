@@ -1,12 +1,12 @@
-// Project: Gamepad-Client
+// Project: G-Client-Sharp
 // This project is a C# client for Gamepad-Core-Host.
 // Copyright (c) 2026 valoto.games. All rights reserved.
 
 using System.Runtime.InteropServices;
 
-using Gamepad_Client.Infrastructure.Hid;
-using Gamepad_Client.Interop.Callbacks;
-namespace Gamepad_Client.Application;
+using G_Client_Sharp.Infrastructure.Hid;
+using G_Client_Sharp.Interop.Callbacks;
+namespace G_Client_Sharp.Application;
 
 internal static class GamepadClientApplication
 {

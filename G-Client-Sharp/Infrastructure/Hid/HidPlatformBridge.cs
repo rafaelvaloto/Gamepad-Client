@@ -1,15 +1,15 @@
 using System.Diagnostics;
-// Project: Gamepad-Client
+// Project: G-Client-Sharp
 // This project is a C# client for Gamepad-Core-Host.
 // Copyright (c) 2026 valoto.games. All rights reserved.
 
 using System.Runtime.InteropServices;
 using System.Text;
 
-using Gamepad_Client.Interop.Callbacks;
-using Gamepad_Client.Interop.Windows;
+using G_Client_Sharp.Interop.Callbacks;
+using G_Client_Sharp.Interop.Windows;
 
-namespace Gamepad_Client.Infrastructure.Hid;
+namespace G_Client_Sharp.Infrastructure.Hid;
 
 internal static class HidPlatformBridge
 {
