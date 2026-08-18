@@ -37,13 +37,6 @@ dotnet run --project .\G-Client-Sharp\G-Client-Sharp.csproj -- `
   "C:\path\to\GamepadCoreHost.dll"
 ```
 
-For example:
-
-```powershell
-dotnet run --project .\G-Client-Sharp\G-Client-Sharp.csproj -- `
-  "C:\\GamepadCoreHost.dll"
-```
-
 The DLL must match the process architecture. Use an x64 DLL with the x64 .NET
 process.
 
