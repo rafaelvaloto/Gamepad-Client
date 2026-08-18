@@ -1,42 +1,42 @@
 # Gamepad Client
 
-Aplicação console em C# para consumir a API nativa do Gamepad Core Host através de callbacks e interoperabilidade HID no Windows.
+C# console application for consuming the native Gamepad Core Host API through callbacks and Windows HID interoperability.
 
-## Requisitos
+## Requirements
 
 - Windows x64
 - .NET 10 SDK
-- DLL nativa `GamepadCoreHost.dll` compilada para x64
-- Um controle Sony DualSense, DualSense Edge ou DualShock 4 compatível
+- x64 `GamepadCoreHost.dll`
+- A compatible Sony DualSense, DualSense Edge, or DualShock 4 controller
 
-## Estrutura
+## Structure
 
-- `Gamepad-Client/Program.cs` — inicialização, callbacks e loop de atualização.
-- `Gamepad-Client/HidPlatformBridge.cs` — enumeração e comunicação HID.
-- `Gamepad-Client/PlatformNativeMethods.cs` — declarações P/Invoke do Windows.
+- `Gamepad-Client/Program.cs` — initialization, callbacks, and update loop.
+- `Gamepad-Client/HidPlatformBridge.cs` — HID device discovery and communication.
+- `Gamepad-Client/PlatformNativeMethods.cs` — Windows HID and SetupAPI P/Invoke declarations.
 
-A DLL nativa não é versionada neste repositório. Ela deve ser compilada separadamente no projeto Gamepad Core Host.
+The native DLL is not committed to this repository. Build it separately with the Gamepad Core Host project.
 
-## Executar
+## Run
 
-O caminho da DLL pode ser informado como primeiro argumento:
+Pass the native DLL path as the first argument:
 
 ```powershell
 dotnet run --project .\Gamepad-Client\Gamepad-Client.csproj -- `
-  "C:\caminho\para\GamepadCoreHost.dll"
+  "C:\path\to\GamepadCoreHost.dll"
 ```
 
-Também é possível configurar esse argumento na configuração de execução do Rider.
+You can also configure this argument in Rider's run configuration.
 
-Se nenhum argumento for informado, o programa usa o caminho padrão configurado em `Program.cs`.
+If no argument is provided, the default path configured in `Program.cs` is used.
 
-## Compilar
+## Build
 
 ```powershell
 dotnet build .\Gamepad-Client\Gamepad-Client.csproj
 ```
 
-O host nativo deve exportar as funções com o prefixo `GCH_`, incluindo:
+The native host must export functions using the `GCH_` prefix, including:
 
 - `GCH_SetLogCallback`
 - `GCH_InitializeDeviceRegistryPolicy`
@@ -46,6 +46,6 @@ O host nativo deve exportar as funções com o prefixo `GCH_`, incluindo:
 - `GCH_GetInputState`
 - `GCH_Shutdown`
 
-## Licença
+## License
 
-Defina aqui a licença do projeto antes de publicar uma versão pública.
+Add the project's license here before publishing a public release.
