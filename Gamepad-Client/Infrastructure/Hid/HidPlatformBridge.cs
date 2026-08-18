@@ -1,28 +1,18 @@
 using System.Diagnostics;
+// Project: Gamepad-Client
+// This project is a C# client for Gamepad-Core-Host.
+// Copyright (c) 2026 valoto.games. All rights reserved.
+
 using System.Runtime.InteropServices;
 using System.Text;
 
+using Gamepad_Client.Interop.Callbacks;
+using Gamepad_Client.Interop.Windows;
+
+namespace Gamepad_Client.Infrastructure.Hid;
+
 internal static class HidPlatformBridge
 {
-    private const ushort SonyVendorId = 0x054C;
-    private const int DescriptorSize = 532;
-    private const string BluetoothGuid = "{00001124-0000-1000-8000-00805f9b34fb}";
-
-    private enum DeviceType
-    {
-        DualSense = 0,
-        DualSenseEdge = 1,
-        DualShock4 = 2,
-        NotFound = 3
-    }
-
-    private enum ConnectionType
-    {
-        Usb = 0,
-        Bluetooth = 1,
-        Unrecognized = 2
-    }
-
     internal static int OnDetect(IntPtr descriptorsBuffer, int maxDevices)
     {
         if (descriptorsBuffer == IntPtr.Zero || maxDevices <= 0)
@@ -31,14 +21,14 @@ internal static class HidPlatformBridge
         PlatformNativeMethods.HidD_GetHidGuid(out var hidGuid);
         IntPtr deviceInfoSet = PlatformNativeMethods.SetupDiGetClassDevs(
             ref hidGuid, null, IntPtr.Zero,
-            PlatformNativeMethods.DIGCF_PRESENT | PlatformNativeMethods.DIGCF_DEVICEINTERFACE);
+            WindowsHidConstants.DigcfPresent | WindowsHidConstants.DigcfDeviceInterface);
 
-        if (deviceInfoSet == PlatformNativeMethods.INVALID_HANDLE_VALUE)
+        if (deviceInfoSet == WindowsHidConstants.InvalidHandleValue)
             return 0;
 
-        var interfaceData = new PlatformNativeMethods.SP_DEVICE_INTERFACE_DATA
+        var interfaceData = new SpDeviceInterfaceData
         {
-            cbSize = Marshal.SizeOf<PlatformNativeMethods.SP_DEVICE_INTERFACE_DATA>()
+            CbSize = Marshal.SizeOf<SpDeviceInterfaceData>()
         };
 
         var foundDevices = 0;
@@ -74,47 +64,47 @@ internal static class HidPlatformBridge
 
                     IntPtr handle = PlatformNativeMethods.CreateFile(
                         path,
-                        PlatformNativeMethods.GENERIC_READ | PlatformNativeMethods.GENERIC_WRITE,
-                        PlatformNativeMethods.FILE_SHARE_READ | PlatformNativeMethods.FILE_SHARE_WRITE,
-                        IntPtr.Zero, PlatformNativeMethods.OPEN_EXISTING, 0, IntPtr.Zero);
+                        WindowsHidConstants.GenericRead | WindowsHidConstants.GenericWrite,
+                        WindowsHidConstants.FileShareRead | WindowsHidConstants.FileShareWrite,
+                        IntPtr.Zero, WindowsHidConstants.OpenExisting, 0, IntPtr.Zero);
 
-                    if (handle == PlatformNativeMethods.INVALID_HANDLE_VALUE)
+                    if (handle == WindowsHidConstants.InvalidHandleValue)
                         continue;
 
                     try
                     {
-                        var attributes = new PlatformNativeMethods.HIDD_ATTRIBUTES
+                        var attributes = new HidAttributes
                         {
-                            Size = Marshal.SizeOf<PlatformNativeMethods.HIDD_ATTRIBUTES>()
+                            Size = Marshal.SizeOf<HidAttributes>()
                         };
 
                         if (!PlatformNativeMethods.HidD_GetAttributes(handle, ref attributes) ||
-                            attributes.VendorID != SonyVendorId)
+                            attributes.VendorId != SonyHidDeviceCatalog.VendorId)
                             continue;
 
-                        DeviceType type = attributes.ProductID switch
+                        var type = attributes.ProductId switch
                         {
-                            0x05C4 or 0x09CC => DeviceType.DualShock4,
-                            0x0CE6 => DeviceType.DualSense,
-                            0x0DF2 => DeviceType.DualSenseEdge,
-                            _ => DeviceType.NotFound
+                            0x05C4 or 0x09CC => SonyHidDeviceCatalog.DeviceType.DualShock4,
+                            0x0CE6 => SonyHidDeviceCatalog.DeviceType.DualSense,
+                            0x0DF2 => SonyHidDeviceCatalog.DeviceType.DualSenseEdge,
+                            _ => SonyHidDeviceCatalog.DeviceType.NotFound
                         };
 
-                        if (type == DeviceType.NotFound)
+                        if (type == SonyHidDeviceCatalog.DeviceType.NotFound)
                             continue;
 
-                        var descriptor = new Native.DeviceDescriptor
+                        var descriptor = new DeviceDescriptor
                         {
                             Handle = 0,
                             DeviceType = (int)type,
-                            ConnectionType = path.Contains(BluetoothGuid, StringComparison.OrdinalIgnoreCase)
-                                ? (int)ConnectionType.Bluetooth
-                                : (int)ConnectionType.Usb,
+                            ConnectionType = path.Contains(SonyHidDeviceCatalog.BluetoothGuid, StringComparison.OrdinalIgnoreCase)
+                                ? (int)SonyHidDeviceCatalog.ConnectionType.Bluetooth
+                                : (int)SonyHidDeviceCatalog.ConnectionType.Usb,
                             IsConnected = 1,
-                            Path = Native.CreatePathBytes(path)
+                            Path = GamepadCoreNative.CreatePathBytes(path)
                         };
 
-                        IntPtr target = IntPtr.Add(descriptorsBuffer, foundDevices * DescriptorSize);
+                        IntPtr target = IntPtr.Add(descriptorsBuffer, foundDevices * SonyHidDeviceCatalog.DescriptorSize);
                         Marshal.StructureToPtr(descriptor, target, false);
                         foundDevices++;
                     }
@@ -142,19 +132,19 @@ internal static class HidPlatformBridge
         if (descriptorBuffer == IntPtr.Zero)
             return false;
 
-        var descriptor = Marshal.PtrToStructure<Native.DeviceDescriptor>(descriptorBuffer);
+        var descriptor = Marshal.PtrToStructure<DeviceDescriptor>(descriptorBuffer);
 
-        string path = Native.PathToString(descriptor.Path);
+        string path = GamepadCoreNative.PathToString(descriptor.Path);
         if (string.IsNullOrWhiteSpace(path))
             return false;
 
         IntPtr handle = PlatformNativeMethods.CreateFile(
             path,
-            PlatformNativeMethods.GENERIC_READ | PlatformNativeMethods.GENERIC_WRITE,
-            PlatformNativeMethods.FILE_SHARE_READ | PlatformNativeMethods.FILE_SHARE_WRITE,
-            IntPtr.Zero, PlatformNativeMethods.OPEN_EXISTING, 0, IntPtr.Zero);
+            WindowsHidConstants.GenericRead | WindowsHidConstants.GenericWrite,
+            WindowsHidConstants.FileShareRead | WindowsHidConstants.FileShareWrite,
+            IntPtr.Zero, WindowsHidConstants.OpenExisting, 0, IntPtr.Zero);
 
-        if (handle == PlatformNativeMethods.INVALID_HANDLE_VALUE)
+        if (handle == WindowsHidConstants.InvalidHandleValue)
         {
             Console.WriteLine($"CreateFile fail. Win32 error: {Marshal.GetLastWin32Error()}");
             return false;
@@ -177,10 +167,11 @@ internal static class HidPlatformBridge
         }
             
 
-        var success = PlatformNativeMethods.ReadFile(handle, buffer, length, out int read, IntPtr.Zero);
-        
+        bool success = PlatformNativeMethods.ReadFile(handle, buffer, length, out int read, IntPtr.Zero);
         if (bytesRead != IntPtr.Zero)
-            Marshal.WriteInt32(bytesRead, read);
+        {
+            Marshal.WriteInt32(bytesRead, success ? length : 0);
+        }
 
         if (!success)
         {
@@ -204,16 +195,15 @@ internal static class HidPlatformBridge
             return false;
         }
 
-        var success = PlatformNativeMethods.WriteFile(handle, buffer, length, out int read, IntPtr.Zero);
-        
-        var error = success ? 0 : Marshal.GetLastWin32Error();
-        var written = success ? length : 0;
+        bool success = PlatformNativeMethods.WriteFile(handle, buffer, length, out int read, IntPtr.Zero);
         if (bytesWritten != IntPtr.Zero)
-            Marshal.WriteInt32(bytesWritten, written);
+        {
+            Marshal.WriteInt32(bytesWritten, success ? length : 0);
+        }
         
         if (!success)
         {
-            Console.WriteLine($"HidD_SetOutputReport status: {success} handle={handle}, length={length}, Win32 error={error}");
+            Console.WriteLine($"HidD_SetOutputReport status: {success} handle={handle}, length={length}, Win32 error={Marshal.GetLastWin32Error()}");
         }
         
         return success;

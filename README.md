@@ -11,9 +11,14 @@ C# console application for consuming the native Gamepad Core Host API through ca
 
 ## Structure
 
-- `Gamepad-Client/Program.cs` — initialization, callbacks, and update loop.
-- `Gamepad-Client/HidPlatformBridge.cs` — HID device discovery and communication.
-- `Gamepad-Client/PlatformNativeMethods.cs` — Windows HID and SetupAPI P/Invoke declarations.
+- `Gamepad-Client/Program.cs` — minimal application entry point.
+- `Gamepad-Client/Application/` — native host initialization, callbacks, and update loop.
+- `Gamepad-Client/Infrastructure/Hid/` — HID device discovery and communication bridge.
+- `Gamepad-Client/Infrastructure/Hid/SonyHidDeviceCatalog.cs` — Sony device IDs, connection types, and descriptor size.
+- `Gamepad-Client/Interop/Callbacks/GamepadCoreCallbacks.cs` — unmanaged callback delegates.
+- `Gamepad-Client/Interop/Callbacks/GamepadCoreTypes.cs` — native-compatible descriptors and input layout.
+- `Gamepad-Client/Interop/Callbacks/GamepadCoreNative.cs` — Gamepad Core P/Invoke methods.
+- `Gamepad-Client/Interop/Windows/` — Windows constants, native-compatible types, and P/Invoke declarations.
 
 The native DLL is not committed to this repository. Build it separately with the Gamepad Core Host project.
 
