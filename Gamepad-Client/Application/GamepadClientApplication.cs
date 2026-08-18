@@ -10,19 +10,24 @@ namespace Gamepad_Client.Application;
 
 internal static class GamepadClientApplication
 {
+    private static readonly object DeviceIdsSync = new();
     private static readonly HashSet<int> DeviceIds = [];
     private static int _nextDeviceId;
 
     private static readonly LogCallback Log = OnLog;
-    private static readonly AllocEngineDeviceCallback Alloc = () => ++_nextDeviceId;
+    private static readonly AllocEngineDeviceCallback Alloc = AllocateDeviceId;
     private static readonly DeviceIdCallback Dispatch = id =>
     {
-        DeviceIds.Add(id);
+        HidPlatformBridge.ConfirmDeviceConnected(id);
+        lock (DeviceIdsSync)
+            DeviceIds.Add(id);
         Console.WriteLine($"Device dispatched: {id}");
     };
     private static readonly DeviceIdCallback Disconnect = id =>
     {
-        DeviceIds.Remove(id);
+        HidPlatformBridge.RemoveDevice(id);
+        lock (DeviceIdsSync)
+            DeviceIds.Remove(id);
         Console.WriteLine($"Device disconnected: {id}");
     };
 
@@ -36,11 +41,11 @@ internal static class GamepadClientApplication
 
     internal static void Run(string[] args)
     {
-        using var stop = new ManualResetEventSlim(false);
+        using var stop = new CancellationTokenSource();
         Console.CancelKeyPress += (_, eventArgs) =>
         {
             eventArgs.Cancel = true;
-            stop.Set();
+            stop.Cancel();
         };
 
         var initialized = false;
@@ -50,33 +55,29 @@ internal static class GamepadClientApplication
             {
                 throw new ArgumentException("Library path must be provided");
             }
-            
+
             // dll path
             string libraryPath = Path.GetFullPath(args[0]);
+            GamepadCoreNative.Load(libraryPath);
 
             Console.WriteLine($"Loading: {libraryPath}");
+            Console.WriteLine($"GamepadCoreHost: {GamepadCoreNative.GetVersion()}");
             
-            GamepadCoreNative.Load(libraryPath);
             GamepadCoreNative.GCH_SetLogCallback(Log);
             GamepadCoreNative.GCH_InitializePlatformBridge(Read, Write, Detect, CreateHandle, InvalidateHandle, Configure, Haptics);
             GamepadCoreNative.GCH_InitializeDeviceRegistryPolicy(0, Alloc, Dispatch, Disconnect);
 
             initialized = true;
-            Console.WriteLine($"GamepadCoreHost {Marshal.PtrToStringAnsi(GamepadCoreNative.GCH_GetVersion())}");
+            Task discoveryTask = Task.Run(() => RunDiscoveryLoop(stop.Token), stop.Token);
 
-            GamepadCoreNative.GCH_DiscoverDevices(2.0f);
-            while (!stop.Wait(TimeSpan.FromMilliseconds(16.6)))
+            try
             {
-                GamepadCoreNative.GCH_DiscoverDevices(0.0166f);
-                foreach (int deviceId in DeviceIds.ToArray())
-                    GamepadCoreNative.GCH_UpdateInput(deviceId, 0.0166f);
-
-                foreach (int deviceId in DeviceIds.ToArray())
-                {
-                    GamepadCoreNative.GCH_GetInputState(deviceId, out InputDescriptor state);
-                    Console.WriteLine($"Device {deviceId}: Left Analog X: {state.LeftAnalogX} Y: {state.LeftAnalogY}");
-                    Console.WriteLine($"Device {deviceId}: Right Analog X: {state.RightAnalogX} Y: {state.RightAnalogY}");
-                }
+                RunInputLoop(stop.Token);
+            }
+            finally
+            {
+                stop.Cancel();
+                discoveryTask.GetAwaiter().GetResult();
             }
         }
         finally
@@ -89,8 +90,47 @@ internal static class GamepadClientApplication
         }
     }
 
+    private static void RunDiscoveryLoop(CancellationToken cancellationToken)
+    {
+        GamepadCoreNative.GCH_DiscoverDevices(2.0f); // immediately request devices
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            GamepadCoreNative.GCH_DiscoverDevices(0.0166f);
+            cancellationToken.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(16.6));
+        }
+    }
+
+    private static void RunInputLoop(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            int[] deviceIds;
+            lock (DeviceIdsSync)
+                deviceIds = DeviceIds.ToArray();
+
+            foreach (int deviceId in deviceIds)
+                GamepadCoreNative.GCH_UpdateInput(deviceId, 0.0166f);
+
+            foreach (int deviceId in deviceIds)
+            {
+                GamepadCoreNative.GCH_GetInputState(deviceId, out InputDescriptor state);
+                // Console.WriteLine($"Device {deviceId}: Left Analog X: {state.LeftAnalogX} Y: {state.LeftAnalogY}");
+                // Console.WriteLine($"Device {deviceId}: Right Analog X: {state.RightAnalogX} Y: {state.RightAnalogY}");
+            }
+
+            cancellationToken.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(16.6));
+        }
+    }
+
     private static void OnLog(int level, IntPtr message)
         => Console.WriteLine($"[Native:{level}] {Marshal.PtrToStringAnsi(message)}");
+
+    private static int AllocateDeviceId()
+    {
+        int deviceId = ++_nextDeviceId;
+        HidPlatformBridge.BindNextPathToDevice(deviceId);
+        return deviceId;
+    }
 
     private static int OnDetect(IntPtr devices, int maxDevices)
         => HidPlatformBridge.OnDetect(devices, maxDevices);

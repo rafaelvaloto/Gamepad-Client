@@ -13,6 +13,49 @@ namespace Gamepad_Client.Infrastructure.Hid;
 
 internal static class HidPlatformBridge
 {
+    private static readonly object DevicePathSync = new();
+    private static readonly HashSet<string> KnownPaths = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Queue<string> PendingPaths = new();
+    private static readonly Dictionary<int, string> DevicePaths = [];
+
+    internal static bool IsPathKnown(string path)
+    {
+        lock (DevicePathSync)
+            return KnownPaths.Contains(path);
+    }
+
+    internal static void BindNextPathToDevice(int deviceId)
+    {
+        lock (DevicePathSync)
+        {
+            if (PendingPaths.Count > 0)
+                DevicePaths[deviceId] = PendingPaths.Dequeue();
+        }
+    }
+
+    internal static void ConfirmDeviceConnected(int deviceId)
+    {
+        lock (DevicePathSync)
+        {
+            // Some host implementations reuse an ID after reconnecting and
+            // dispatch it without invoking AllocEngineDevice again.
+            if (!DevicePaths.ContainsKey(deviceId) && PendingPaths.Count > 0)
+                DevicePaths[deviceId] = PendingPaths.Dequeue();
+
+            if (DevicePaths.TryGetValue(deviceId, out string? path))
+                Console.WriteLine($"Device connected: {deviceId}, Path={path}");
+        }
+    }
+
+    internal static void RemoveDevice(int deviceId)
+    {
+        lock (DevicePathSync)
+        {
+            if (DevicePaths.Remove(deviceId, out string? path))
+                KnownPaths.Remove(path);
+        }
+    }
+
     internal static int OnDetect(IntPtr descriptorsBuffer, int maxDevices)
     {
         if (descriptorsBuffer == IntPtr.Zero || maxDevices <= 0)
@@ -150,6 +193,17 @@ internal static class HidPlatformBridge
             return false;
         }
 
+        lock (DevicePathSync)
+        {
+            if (!KnownPaths.Add(path))
+            {
+                PlatformNativeMethods.CloseHandle(handle);
+                return false;
+            }
+
+            PendingPaths.Enqueue(path);
+        }
+
         descriptor.Handle = unchecked((ulong)handle.ToInt64());
         descriptor.IsConnected = 1;
         Marshal.StructureToPtr(descriptor, descriptorBuffer, false);
@@ -165,7 +219,6 @@ internal static class HidPlatformBridge
             Console.WriteLine("Invalid handle provided for Read operation.");
             return false;
         }
-            
 
         bool success = PlatformNativeMethods.ReadFile(handle, buffer, length, out int read, IntPtr.Zero);
         if (bytesRead != IntPtr.Zero)

@@ -41,6 +41,14 @@ internal static partial class GamepadCoreNative
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     internal static extern IntPtr GCH_GetVersion();
 
+    internal static string GetVersion()
+    {
+        IntPtr version = GCH_GetVersion();
+        return version == IntPtr.Zero
+            ? "<null>"
+            : Marshal.PtrToStringUTF8(version) ?? "<invalid>";
+    }
+
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void GCH_SetLogCallback(LogCallback callback);
 
