@@ -76,5 +76,25 @@ internal static partial class GamepadCoreNative
     internal static extern bool GCH_GetInputState(int deviceId, out InputDescriptor inputState);
 
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void GCH_SetVibration(int controllerId, byte leftRumble, byte rightRumble);
+
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void GCH_Lightbar(int controllerId, byte r, byte g, byte b);
+
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void GCH_UpdateOutput(int controllerId);
+
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    internal static extern bool GCH_CustomTrigger(
+        int controllerId,
+        [In] byte[] hexBytes,
+        int byteCount,
+        int hand);
+
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void GCH_StopTrigger(int controllerId, int hand);
+
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void GCH_Shutdown();
 }
