@@ -43,7 +43,10 @@ internal static class HidPlatformBridge
                 DevicePaths[deviceId] = PendingPaths.Dequeue();
 
             if (DevicePaths.TryGetValue(deviceId, out string? path))
-                Console.WriteLine($"Device connected: {deviceId}, Path={path}");
+            {
+                Console.WriteLine($"Device connected ID: {deviceId}, Path={path}");
+            }
+                
         }
     }
 
@@ -207,7 +210,7 @@ internal static class HidPlatformBridge
         descriptor.Handle = unchecked((ulong)handle.ToInt64());
         descriptor.IsConnected = 1;
         Marshal.StructureToPtr(descriptor, descriptorBuffer, false);
-        Console.WriteLine($"CreateHandle: Handle={descriptor.Handle}, Path={path}");
+        // Console.WriteLine($"CreateHandle: Handle={descriptor.Handle}, Path={path}");
         
         return true;
     }

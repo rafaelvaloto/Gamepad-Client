@@ -12,6 +12,7 @@ internal static class GamepadClientApplication
 {
     private static readonly object DeviceIdsSync = new();
     private static readonly HashSet<int> DeviceIds = [];
+    private static readonly Dictionary<int, InputDescriptor> PreviousInputStates = [];
     private static int _nextDeviceId;
 
     private static readonly LogCallback Log = OnLog;
@@ -28,6 +29,7 @@ internal static class GamepadClientApplication
         HidPlatformBridge.RemoveDevice(id);
         lock (DeviceIdsSync)
             DeviceIds.Remove(id);
+        PreviousInputStates.Remove(id);
         Console.WriteLine($"Device disconnected: {id}");
     };
 
@@ -62,6 +64,7 @@ internal static class GamepadClientApplication
 
             Console.WriteLine($"Loading: {libraryPath}");
             Console.WriteLine($"GamepadCoreHost: {GamepadCoreNative.GetVersion()}");
+            PrintStartupBanner();
             
             GamepadCoreNative.GCH_SetLogCallback(Log);
             GamepadCoreNative.GCH_InitializePlatformBridge(Read, Write, Detect, CreateHandle, InvalidateHandle, Configure, Haptics);
@@ -90,6 +93,33 @@ internal static class GamepadClientApplication
         }
     }
 
+    private static void PrintStartupBanner()
+    {
+        Console.WriteLine("""
+            =======================================================
+                       DUALSENSE INTEGRATION TEST
+            =======================================================
+
+             [ FACE BUTTONS ]
+               (X) Cross    : Heavy Rumble + RED Light
+               (O) Circle   : Soft Rumble  + YELLOW Light
+               [ ] Square   : Trigger Effect: GAMECUBE (R2)
+               /_\ Triangle : Stop All
+
+            -------------------------------------------------------
+
+             [ D-PADS & SHOULDERS ]
+               [L1]    : Trigger Effect: Gallop (L2)
+               [R1]    : Trigger Effect: Machine (R2)
+               [UP]    : Trigger Effect: Feedback (Rigid)
+               [DOWN]  : Trigger Effect: Bow (Tension)
+               [LEFT]  : Trigger Effect: Weapon (Semi)
+               [RIGHT] : Trigger Effect: Automatic Gun (Buzz)
+
+            =======================================================
+            """);
+    }
+
     private static void RunDiscoveryLoop(CancellationToken cancellationToken)
     {
         GamepadCoreNative.GCH_DiscoverDevices(2.0f); // immediately request devices
@@ -114,13 +144,54 @@ internal static class GamepadClientApplication
             foreach (int deviceId in deviceIds)
             {
                 GamepadCoreNative.GCH_GetInputState(deviceId, out InputDescriptor state);
-                // Console.WriteLine($"Device {deviceId}: Left Analog X: {state.LeftAnalogX} Y: {state.LeftAnalogY}");
-                // Console.WriteLine($"Device {deviceId}: Right Analog X: {state.RightAnalogX} Y: {state.RightAnalogY}");
+                HandleInput(deviceId, state);
             }
 
             cancellationToken.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(16.6));
         }
     }
+
+    private static void HandleInput(int deviceId, InputDescriptor state)
+    {
+        PreviousInputStates.TryGetValue(deviceId, out InputDescriptor previousState);
+
+        // [ FACE BUTTONS ]
+        if (IsPressed(state.Cross, previousState.Cross))
+            Console.WriteLine($"Device {deviceId}: Cross -> Heavy Rumble + RED Light");
+
+        if (IsPressed(state.Circle, previousState.Circle))
+            Console.WriteLine($"Device {deviceId}: Circle -> Soft Rumble + YELLOW Light");
+
+        if (IsPressed(state.Square, previousState.Square))
+            Console.WriteLine($"Device {deviceId}: Square -> Trigger Effect: GAMECUBE (R2)");
+
+        if (IsPressed(state.Triangle, previousState.Triangle))
+            Console.WriteLine($"Device {deviceId}: Triangle -> Stop All");
+
+        // [ D-PADS & SHOULDERS ]
+        if (IsPressed(state.LeftShoulder, previousState.LeftShoulder))
+            Console.WriteLine($"Device {deviceId}: L1 -> Trigger Effect: Gallop (L2)");
+
+        if (IsPressed(state.RightShoulder, previousState.RightShoulder))
+            Console.WriteLine($"Device {deviceId}: R1 -> Trigger Effect: Machine (R2)");
+
+        if (IsPressed(state.DpadUp, previousState.DpadUp))
+            Console.WriteLine($"Device {deviceId}: UP -> Trigger Effect: Feedback (Rigid)");
+
+        if (IsPressed(state.DpadDown, previousState.DpadDown))
+            Console.WriteLine($"Device {deviceId}: DOWN -> Trigger Effect: Bow (Tension)");
+
+        if (IsPressed(state.DpadLeft, previousState.DpadLeft))
+            Console.WriteLine($"Device {deviceId}: LEFT -> Trigger Effect: Weapon (Semi)");
+
+        if (IsPressed(state.DpadRight, previousState.DpadRight))
+            Console.WriteLine($"Device {deviceId}: RIGHT -> Trigger Effect: Automatic Gun (Buzz)");
+
+        PreviousInputStates[deviceId] = state;
+    }
+
+    private static bool IsPressed(byte current, byte previous)
+        => current != 0 && previous == 0;
 
     private static void OnLog(int level, IntPtr message)
         => Console.WriteLine($"[Native:{level}] {Marshal.PtrToStringAnsi(message)}");
