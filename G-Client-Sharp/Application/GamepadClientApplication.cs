@@ -45,6 +45,7 @@ internal static class GamepadClientApplication
         lock (DeviceIdsSync)
             DeviceIds.Add(id);
         Console.WriteLine($"Device dispatched: {id}");
+        PrintStartupBanner();
     };
     private static readonly DeviceIdCallback Disconnect = id =>
     {
@@ -196,6 +197,33 @@ internal static class GamepadClientApplication
         Console.WriteLine();
         Console.WriteLine("[+] Loading DLL from:");
         Console.WriteLine($"    {libraryPath}");
+    }
+
+    private static void PrintStartupBanner()
+    {
+        Console.WriteLine("""
+            =======================================================
+                       DUALSENSE INTEGRATION TEST
+            =======================================================
+
+             [ FACE BUTTONS ]
+               (X) Cross    : Heavy Rumble + RED Light
+               (O) Circle   : Soft Rumble  + YELLOW Light
+               [ ] Square   : Trigger Effect: GAMECUBE (R2)
+               /_\ Triangle : Stop All
+
+            -------------------------------------------------------
+
+             [ D-PADS & SHOULDERS ]
+               [L1]    : Trigger Effect: Gallop (L2)
+               [R1]    : Trigger Effect: Machine (R2)
+               [UP]    : Trigger Effect: Feedback (Rigid)
+               [DOWN]  : Trigger Effect: Bow (Tension)
+               [LEFT]  : Trigger Effect: Weapon (Semi)
+               [RIGHT] : Trigger Effect: Automatic Gun (Buzz)
+
+            =======================================================
+            """);
     }
 
     private static void PrintTypeInformation()
