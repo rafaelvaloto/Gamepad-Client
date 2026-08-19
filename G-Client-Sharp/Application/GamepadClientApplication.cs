@@ -10,6 +10,9 @@ namespace G_Client_Sharp.Application;
 
 internal static class GamepadClientApplication
 {
+    private const string DefaultLibraryRelativePath = @"CLionProjects\Gamepad-Core-Host\cmake-build-debug\GamepadCoreHost.dll";
+    private const int SonyVendorId = 0x054C;
+    private static readonly Guid BluetoothGuid = new("00001124-0000-1000-8000-00805f9b34fb");
     private static readonly object DeviceIdsSync = new();
     private static readonly HashSet<int> DeviceIds = [];
     private static readonly Dictionary<int, InputDescriptor> PreviousInputStates = [];
@@ -62,6 +65,26 @@ internal static class GamepadClientApplication
 
     internal static void Run(string[] args)
     {
+        CommandLineOptions options = ParseCommandLine(args);
+        PrintApplicationBanner();
+
+        if (options.ShowHelp)
+        {
+            PrintUsage();
+            return;
+        }
+
+        if (!options.RunClient)
+        {
+            PrintLibraryPath(options.LibraryPath);
+            Console.WriteLine("[INFO] Using the default DLL path. Specify another path with: --dll or -d <path>");
+            Console.WriteLine("[TIP] Use '--info' to view ctypes memory structures.");
+            return;
+        }
+
+        if (options.ShowInfo)
+            PrintTypeInformation();
+
         using var stop = new CancellationTokenSource();
         Console.CancelKeyPress += (_, eventArgs) =>
         {
@@ -72,24 +95,20 @@ internal static class GamepadClientApplication
         var initialized = false;
         try
         {
-            if (args.Length <= 0)
-            {
-                throw new ArgumentException("Library path must be provided");
-            }
-
-            // dll path
-            string libraryPath = Path.GetFullPath(args[0]);
-            GamepadCoreNative.Load(libraryPath);
-
-            Console.WriteLine($"Loading: {libraryPath}");
-            Console.WriteLine($"GamepadCoreHost: {GamepadCoreNative.GetVersion()}");
-            PrintStartupBanner();
+            PrintLibraryPath(options.LibraryPath);
+            GamepadCoreNative.Load(options.LibraryPath);
+            Console.WriteLine("[+] DLL loaded successfully!");
+            Console.WriteLine("[+] Running the initial device discovery cycle...");
             
             GamepadCoreNative.GCH_SetLogCallback(Log);
             GamepadCoreNative.GCH_InitializePlatformBridge(Read, Write, Detect, CreateHandle, InvalidateHandle, Configure, Haptics);
             GamepadCoreNative.GCH_InitializeDeviceRegistryPolicy(0, Alloc, Dispatch, Disconnect);
 
             initialized = true;
+            Console.WriteLine();
+            Console.WriteLine("[INFO] Starting device discovery loop (interval: 0.016s).");
+            Console.WriteLine("[INFO] Press Ctrl+C to stop monitoring.");
+            Console.WriteLine();
             Task discoveryTask = Task.Run(() => RunDiscoveryLoop(stop.Token), stop.Token);
 
             try
@@ -112,32 +131,127 @@ internal static class GamepadClientApplication
         }
     }
 
-    private static void PrintStartupBanner()
+    private static CommandLineOptions ParseCommandLine(string[] args)
+    {
+        string defaultLibraryPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            DefaultLibraryRelativePath);
+
+        if (args.Length == 0)
+            return new CommandLineOptions(defaultLibraryPath, false, false, false);
+
+        string? libraryPath = null;
+        bool showInfo = false;
+
+        for (int index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--help":
+                case "-h":
+                    return new CommandLineOptions(defaultLibraryPath, false, false, true);
+
+                case "--info":
+                    showInfo = true;
+                    break;
+
+                case "--dll":
+                case "-d":
+                    if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index]))
+                        throw new ArgumentException($"Argument '{args[index - 1]}' requires a DLL path.");
+
+                    libraryPath = args[index];
+                    break;
+
+                default:
+                    if (args[index].StartsWith('-'))
+                        throw new ArgumentException($"Unknown argument: {args[index]}");
+
+                    if (libraryPath is not null)
+                        throw new ArgumentException($"Unexpected argument: {args[index]}");
+
+                    libraryPath = args[index];
+                    break;
+            }
+        }
+
+        return new CommandLineOptions(
+            Path.GetFullPath(libraryPath ?? defaultLibraryPath),
+            showInfo,
+            true,
+            false);
+    }
+
+    private static void PrintApplicationBanner()
     {
         Console.WriteLine("""
-            =======================================================
-                       DUALSENSE INTEGRATION TEST
-            =======================================================
-
-             [ FACE BUTTONS ]
-               (X) Cross    : Heavy Rumble + RED Light
-               (O) Circle   : Soft Rumble  + YELLOW Light
-               [ ] Square   : Trigger Effect: GAMECUBE (R2)
-               /_\ Triangle : Stop All
-
-            -------------------------------------------------------
-
-             [ D-PADS & SHOULDERS ]
-               [L1]    : Trigger Effect: Gallop (L2)
-               [R1]    : Trigger Effect: Machine (R2)
-               [UP]    : Trigger Effect: Feedback (Rigid)
-               [DOWN]  : Trigger Effect: Bow (Tension)
-               [LEFT]  : Trigger Effect: Weapon (Semi)
-               [RIGHT] : Trigger Effect: Automatic Gun (Buzz)
-
-            =======================================================
+            ======================================================================
+                   Gamepad Core Host - CSharp Client (CLI)
+            ======================================================================
             """);
     }
+
+    private static void PrintLibraryPath(string libraryPath)
+    {
+        Console.WriteLine();
+        Console.WriteLine("[+] Loading DLL from:");
+        Console.WriteLine($"    {libraryPath}");
+    }
+
+    private static void PrintTypeInformation()
+    {
+        Console.WriteLine("""
+
+            --- API Type and Descriptor Information ---
+            """);
+        Console.WriteLine($"VendorId:               0x{SonyVendorId:X4} ({SonyVendorId})");
+        Console.WriteLine($"BluetoothGuid:          {{{BluetoothGuid:D}}}");
+        Console.WriteLine("""
+            DescriptorSize:         532 bytes
+            InputDescriptorSize:    148 bytes
+
+            Device Types:
+              - DualSense = 0
+              - DualSenseEdge = 1
+              - DualShock4 = 2
+              - NotFound = 3
+
+            Connection Types:
+              - Usb = 0
+              - Bluetooth = 1
+              - Unrecognized = 2
+
+            DeviceDescriptor Structure:
+              - Memory size: 532 bytes
+                * Handle               (offset   0, type UInt64)
+                * DeviceType           (offset   8, type Int32)
+                * ConnectionType       (offset  12, type Int32)
+                * IsConnected          (offset  16, type Int32)
+                * Path                 (offset  20, type Byte[512])
+
+            InputDescriptor Structure:
+              - Memory size: 148 bytes
+              - Total mapped fields: 63
+            ======================================================================
+            """);
+    }
+
+    private static void PrintUsage()
+    {
+        Console.WriteLine("""
+
+            Usage:
+              G-Client-Sharp [--dll|-d <path>] [--info]
+
+            Without arguments, displays the default DLL location and usage hints.
+            """);
+    }
+
+    private sealed record CommandLineOptions(
+        string LibraryPath,
+        bool ShowInfo,
+        bool RunClient,
+        bool ShowHelp);
 
     private static void RunDiscoveryLoop(CancellationToken cancellationToken)
     {

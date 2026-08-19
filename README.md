@@ -30,15 +30,30 @@ dotnet build .\G-Client-Sharp\G-Client-Sharp.csproj
 
 ## Run
 
-Pass the native DLL path as the first argument:
+Running without arguments prints the default DLL location and command-line help:
+
+```powershell
+dotnet run --project .\G-Client-Sharp\G-Client-Sharp.csproj
+```
+
+Start device monitoring with the default DLL path and display the native API
+descriptor information:
+
+```powershell
+dotnet run --project .\G-Client-Sharp\G-Client-Sharp.csproj -- --info
+```
+
+Pass a different native DLL path with `--dll` (or `-d`):
 
 ```powershell
 dotnet run --project .\G-Client-Sharp\G-Client-Sharp.csproj -- `
-  "C:\path\to\GamepadCoreHost.dll"
+  --dll "C:\path\to\GamepadCoreHost.dll"
 ```
 
 The DLL must match the process architecture. Use an x64 DLL with the x64 .NET
 process.
+
+The legacy positional DLL path is also supported.
 
 ## Native API lifecycle
 
