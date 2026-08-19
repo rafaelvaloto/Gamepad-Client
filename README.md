@@ -1,15 +1,5 @@
 # G-Client-Sharp
 
-[![C](https://img.shields.io/badge/C-A8B9CC?logo=c&logoColor=white)](https://en.wikipedia.org/wiki/C_(programming_language))
-[![C++](https://img.shields.io/badge/C%2B%2B-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
-[![C#](https://img.shields.io/badge/C%23-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/languages/csharp)
-[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Go](https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![Java](https://img.shields.io/badge/Java-ED8B00?logo=openjdk&logoColor=white)](https://www.java.com/)
-
-[Requirements](#requirements) • [Build](#build) • [Run](#run) • [API Lifecycle](#native-api-lifecycle) • [Native Exports](#required-native-exports) • [Structure](#project-structure) • [License](#license)
-
 G-Client-Sharp is a .NET console application that consumes the
 [`GamepadCoreHost.dll`](https://github.com/rafaelvaloto/Gamepad-Core-Host) native API
 through C# P/Invoke and unmanaged callbacks.
